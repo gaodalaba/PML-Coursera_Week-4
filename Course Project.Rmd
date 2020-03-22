@@ -1,0 +1,78 @@
+---
+title: "Quiz Practice"
+author: "Han"
+date: "3/14/2020"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+### Data Import and Cleaning : import, remove NAs and stable columns
+```{r}
+library("caret")
+Urltrain <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+Urltest <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+Train1 <- read.csv(Urltrain, header = TRUE, na.strings = c("NA","#DIV/0!", ""))
+str(Train1)
+Test <- read.csv(Urltest, header = TRUE,na.strings = c("NA","#DIV/0!", ""))
+str(Test)
+
+NearOVar <- nearZeroVar(Train1)
+Train2 <-Train1[, - NearOVar]
+Test2 <- Test[, - NearOVar]
+
+ValidColIndex <- colSums(is.na(Train2)/nrow(Train2)) < 0.95
+Train3 <-Train2[,ValidColIndex]
+Test3 <-Test2[,ValidColIndex]
+str(Train3)
+
+Index <- as.numeric()
+for (i in 1:5) {
+  relatedstrings <- c("belt", "arm", "forearm", "dumbbell", "classe")
+  Index <- unique(c(Index, grep(relatedstrings[i], colnames(Train3))))
+}
+Train_data <- Train3[, Index]
+Test_data <- Test3[, Index]
+str(Train_data)
+```
+
+### Decission Tree Model
+```{r}
+library("rpart")
+library("rpart.plot")
+library("e1071")
+
+set.seed(2333)
+Train_data_Train_Index <- createDataPartition(Train_data$classe, p = 0.75, list = FALSE)
+Train_data_Train <- Train_data[Train_data_Train_Index,]
+Train_data_Test <- Train_data[-Train_data_Train_Index,]
+
+dTree <- train(classe ~., method = "rpart", data = Train_data)
+dTree
+rpart.plot(dTree$finalModel)
+
+Train_data_Prediction <- predict(dTree, Train_data_Test)
+confusionMatrix(Train_data_Test$classe, Train_data_Prediction)
+```
+rpart decision tree could only give 0.49 accuracy as evaluated by confusionMatrix
+
+
+### Random Forrest
+```{r}
+rForrest <- train(classe ~., method = "rf", data = Train_data, ntree = 128)
+Train_data_Prediction <- predict(rForrest, Train_data_Test)
+confusionMatrix(Train_data_Test$classe, Train_data_Prediction)
+```
+As the confusion Matrix indicated, random forest model could give better acurracy than rpart method, so the model trained through random forest would be used for testing data
+
+```{r}
+Test_data_Prediction <- predict(rForrest, Test_data)
+Test_data_Prediction
+```
